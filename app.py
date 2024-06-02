@@ -1,4 +1,4 @@
-from flask import Flask, jsonify, render_template_string
+from flask import Flask, render_template_string
 import requests
 import pandas as pd
 import dash
@@ -17,41 +17,52 @@ FILE_URL = f'https://drive.google.com/uc?export=download&id={FILE_ID}'
 
 # Function to fetch and parse the JSON data
 def fetch_data():
-    response = requests.get(FILE_URL)
-    data = response.json()
-    open_trades = []
-    for strategy, trades in data['open_trades'].items():
-        for symbol, trade in trades.items():
-            trade_data = {
-                'Strategy': strategy,
-                'Symbol': symbol,
-                'LTP': trade['ltp'],
-                'Quantity': trade['qty'],
-                'Live Status': trade['live_stat'],
-                'Kite Token': trade['kite_token'],
-                'Stop Loss': trade['sl'],
-                'Target': trade['tgt'],
-                'Type': trade['type'],
-                'Order Time': trade['order_time'],
-                'Current LTP': trade['c_ltp']
-            }
-            open_trades.append(trade_data)
-    return pd.DataFrame(open_trades)
+    try:
+        response = requests.get(FILE_URL)
+        response.raise_for_status()  # Raise an error for bad status codes
+        data = response.json()
+        open_trades = []
+        for strategy, trades in data['open_trades'].items():
+            for symbol, trade in trades.items():
+                trade_data = {
+                    'Strategy': strategy,
+                    'Symbol': symbol,
+                    'LTP': trade['ltp'],
+                    'Quantity': trade['qty'],
+                    'Live Status': trade['live_stat'],
+                    'Kite Token': trade['kite_token'],
+                    'Stop Loss': trade['sl'],
+                    'Target': trade['tgt'],
+                    'Type': trade['type'],
+                    'Order Time': trade['order_time'],
+                    'Current LTP': trade['c_ltp']
+                }
+                open_trades.append(trade_data)
+        return pd.DataFrame(open_trades)
+    except requests.RequestException as e:
+        print(f"Error fetching data: {e}")
+        return pd.DataFrame()  # Return an empty DataFrame in case of error
 
 # Create a Dash app
 app = dash.Dash(__name__, server=server, url_base_pathname='/dashboard/')
 
 app.layout = html.Div([
-    html.H1('Dashboard'),
+    html.H1('Algroww Dashboard'),
     dcc.Interval(
         id='interval-component',
-        interval=60*1000,  # in milliseconds (60 seconds)
+        interval=3*1000,  # in milliseconds (60 seconds)
         n_intervals=0
     ),
-    dash_table.DataTable(
-        id='table',
-        columns=[{"name": i, "id": i} for i in fetch_data().columns],
-        data=fetch_data().to_dict('records')
+    dcc.Loading(
+        id="loading-1",
+        type="default",
+        children=[
+            dash_table.DataTable(
+                id='table',
+                columns=[{"name": i, "id": i} for i in fetch_data().columns],
+                data=fetch_data().to_dict('records')
+            )
+        ]
     )
 ])
 
