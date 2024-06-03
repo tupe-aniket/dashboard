@@ -1,9 +1,5 @@
-Flask==2.0.1
-requests==2.25.1
-pandas==1.2.4
-dash==1.20.0
-dash-table==4.11.3
-dash-core-components==1.16.0
-dash-html-components==1.1.3
-pytz==2021.1
-gunicorn==20.1.0
+Flask
+dash
+pandas
+requests
+gunicorn
