@@ -6,7 +6,6 @@ import dash_table
 import dash_core_components as dcc
 import dash_html_components as html
 from dash.dependencies import Input, Output
-import json
 import pytz
 from datetime import datetime
 
@@ -16,7 +15,6 @@ server = Flask(__name__)
 # Your Google Drive file ID
 FILE_ID = '1-BldP2RQxfVXDa9hje7T3civXGVNpkzx'
 FILE_URL = f'https://drive.google.com/uc?export=download&id={FILE_ID}'
-
 
 # Function to fetch and parse the JSON data
 def fetch_data():
@@ -51,12 +49,10 @@ def fetch_data():
         print(f"Error fetching data: {e}")
         return pd.DataFrame(), 0, 0  # Return empty DataFrame and zeroes in case of error
 
-
 # Function to get current IST time
 def get_current_ist_time():
     ist = pytz.timezone('Asia/Kolkata')
     return datetime.now(ist).strftime('%Y-%m-%d %H:%M:%S')
-
 
 # Create a Dash app
 app = dash.Dash(__name__, server=server, url_base_pathname='/dashboard/')
@@ -69,7 +65,7 @@ app.layout = html.Div([
     html.H1('Algroww Dashboard', style={'textAlign': 'center'}),
     dcc.Interval(
         id='interval-component',
-        interval=1 * 1000,  # in milliseconds (60 seconds)
+        interval=1*1000,  # in milliseconds (60 seconds)
         n_intervals=0
     ),
     dcc.Interval(
@@ -88,7 +84,6 @@ app.layout = html.Div([
     ], style={'marginTop': '20px', 'textAlign': 'center'})
 ])
 
-
 @app.callback(
     [Output('table', 'data'),
      Output('strat-pnl-nifty-trend', 'children'),
@@ -97,9 +92,7 @@ app.layout = html.Div([
 )
 def update_table(n):
     df, strat_pnl_nifty_trend, strat_pnl_nifty_scalp = fetch_data()
-    return df.to_dict(
-        'records'), f'NIFTY Trend Strat PnL: {strat_pnl_nifty_trend}', f'NIFTY Scalp Strat PnL: {strat_pnl_nifty_scalp}'
-
+    return df.to_dict('records'), f'NIFTY Trend Strat PnL: {strat_pnl_nifty_trend}', f'NIFTY Scalp Strat PnL: {strat_pnl_nifty_scalp}'
 
 @app.callback(
     Output('live-time', 'children'),
@@ -108,7 +101,6 @@ def update_table(n):
 def update_time(n):
     return get_current_ist_time()
 
-
 # Define a route for the Flask server
 @server.route('/')
 def index():
@@ -116,7 +108,6 @@ def index():
         <h1>Welcome to the Dashboard</h1>
         <p><a href="/dashboard/">Go to Dashboard</a></p>
     ''')
-
 
 # Run the Flask server
 if __name__ == '__main__':
