@@ -25,24 +25,25 @@ def fetch_data():
         data = response.json()
         open_trades = []
         for strategy, trades in data['open_trades'].items():
-            for symbol, trade in trades.items():
-                trade_data = {
-                    'Strategy': strategy,
-                    'Live Status': trade['live_stat'],
-                    'Symbol': symbol,
-                    'Type': trade['type'],
-                    'Price': trade['ltp'],
-                    'Quantity': trade['qty'],
-                    'Stop Loss': trade['sl'],
-                    'Target': trade['tgt'],
-                    'Order Time': trade['order_time'],
-                    'Kite Token': trade['kite_token'],
-                    'Current LTP': trade['c_ltp'],
-                    'PnL':trade['PnL']
+            if trades != "Strat_PnL":
+                for symbol, trade in trades.items():
+                    trade_data = {
+                        'Strategy': strategy,
+                        'Live Status': trade['live_stat'],
+                        'Symbol': symbol,
+                        'Type': trade['type'],
+                        'Price': trade['ltp'],
+                        'Quantity': trade['qty'],
+                        'Stop Loss': trade['sl'],
+                        'Target': trade['tgt'],
+                        'Order Time': trade['order_time'],
+                        'Kite Token': trade['kite_token'],
+                        'Current LTP': trade['c_ltp'],
+                        'PnL':trade['PnL']
 
 
-                }
-                open_trades.append(trade_data)
+                    }
+                    open_trades.append(trade_data)
         return pd.DataFrame(open_trades)
     except requests.RequestException as e:
         print(f"Error fetching data: {e}")
