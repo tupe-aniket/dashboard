@@ -38,13 +38,15 @@ def fetch_data():
                     'Order Time': trade['order_time'],
                     'Kite Token': trade['kite_token'],
                     'Current LTP': trade['c_ltp'],
-                    'PnL': trade.get('PnL', 0)  # Ensure 'PnL' key is handled safely
+                    'PnL':trade['PnL']
+
+
                 }
                 open_trades.append(trade_data)
-        return pd.DataFrame(open_trades), data.get('net_cash', 0), data.get('net_profit', 0)
+        return pd.DataFrame(open_trades)
     except requests.RequestException as e:
         print(f"Error fetching data: {e}")
-        return pd.DataFrame(), 0, 0  # Return empty DataFrame and zeroes in case of error
+        return pd.DataFrame()  # Return an empty DataFrame in case of error
 
 # Function to get current IST time
 def get_current_ist_time():
@@ -55,7 +57,7 @@ def get_current_ist_time():
 app = dash.Dash(__name__, server=server, url_base_pathname='/dashboard/')
 
 # Fetch initial data
-initial_data, initial_net_cash, initial_net_profit = fetch_data()
+initial_data = fetch_data()
 
 app.layout = html.Div([
     html.Div(id='live-time', style={'position': 'absolute', 'top': '10px', 'left': '10px', 'fontSize': 20}),
@@ -74,22 +76,16 @@ app.layout = html.Div([
         id='table',
         columns=[{"name": i, "id": i} for i in initial_data.columns],
         data=initial_data.to_dict('records')
-    ),
-    html.Div([
-        html.H3('Net Cash:', id='net-cash', style={'textAlign': 'center'}),
-        html.H3('Net Profit:', id='net-profit', style={'textAlign': 'center'}),
-    ], style={'marginTop': '20px', 'textAlign': 'center'})
+    )
 ])
 
 @app.callback(
-    [Output('table', 'data'),
-     Output('net-cash', 'children'),
-     Output('net-profit', 'children')],
+    Output('table', 'data'),
     [Input('interval-component', 'n_intervals')]
 )
 def update_table(n):
-    df, net_cash, net_profit = fetch_data()
-    return df.to_dict('records'), f'Net Cash: {net_cash}', f'Net Profit: {net_profit}'
+    df = fetch_data()
+    return df.to_dict('records')
 
 @app.callback(
     Output('live-time', 'children'),
