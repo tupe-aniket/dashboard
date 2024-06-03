@@ -6,6 +6,7 @@ import dash_table
 import dash_core_components as dcc
 import dash_html_components as html
 from dash.dependencies import Input, Output
+import json
 import pytz
 from datetime import datetime
 
@@ -40,11 +41,7 @@ def fetch_data():
                     'PnL': trade.get('PnL', 0)  # Ensure 'PnL' key is handled safely
                 }
                 open_trades.append(trade_data)
-
-        strat_pnl_nifty_trend = data['open_trades']['NIFTY_Trend'].get('Strat_PnL', 0)
-        strat_pnl_nifty_scalp = data['open_trades']['NIFTY_Scalp'].get('Strat_PnL', 0)
-
-        return pd.DataFrame(open_trades), strat_pnl_nifty_trend, strat_pnl_nifty_scalp
+        return pd.DataFrame(open_trades), data.get('net_cash', 0), data.get('net_profit', 0)
     except requests.RequestException as e:
         print(f"Error fetching data: {e}")
         return pd.DataFrame(), 0, 0  # Return empty DataFrame and zeroes in case of error
@@ -58,7 +55,7 @@ def get_current_ist_time():
 app = dash.Dash(__name__, server=server, url_base_pathname='/dashboard/')
 
 # Fetch initial data
-initial_data, initial_strat_pnl_nifty_trend, initial_strat_pnl_nifty_scalp = fetch_data()
+initial_data, initial_net_cash, initial_net_profit = fetch_data()
 
 app.layout = html.Div([
     html.Div(id='live-time', style={'position': 'absolute', 'top': '10px', 'left': '10px', 'fontSize': 20}),
@@ -79,20 +76,20 @@ app.layout = html.Div([
         data=initial_data.to_dict('records')
     ),
     html.Div([
-        html.H3(id='strat-pnl-nifty-trend', style={'textAlign': 'center'}),
-        html.H3(id='strat-pnl-nifty-scalp', style={'textAlign': 'center'}),
+        html.H3('Net Cash:', id='net-cash', style={'textAlign': 'center'}),
+        html.H3('Net Profit:', id='net-profit', style={'textAlign': 'center'}),
     ], style={'marginTop': '20px', 'textAlign': 'center'})
 ])
 
 @app.callback(
     [Output('table', 'data'),
-     Output('strat-pnl-nifty-trend', 'children'),
-     Output('strat-pnl-nifty-scalp', 'children')],
+     Output('net-cash', 'children'),
+     Output('net-profit', 'children')],
     [Input('interval-component', 'n_intervals')]
 )
 def update_table(n):
-    df, strat_pnl_nifty_trend, strat_pnl_nifty_scalp = fetch_data()
-    return df.to_dict('records'), f'NIFTY Trend Strat PnL: {strat_pnl_nifty_trend}', f'NIFTY Scalp Strat PnL: {strat_pnl_nifty_scalp}'
+    df, net_cash, net_profit = fetch_data()
+    return df.to_dict('records'), f'Net Cash: {net_cash}', f'Net Profit: {net_profit}'
 
 @app.callback(
     Output('live-time', 'children'),
