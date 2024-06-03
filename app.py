@@ -28,16 +28,19 @@ def fetch_data():
             for symbol, trade in trades.items():
                 trade_data = {
                     'Strategy': strategy,
-                    'Symbol': symbol,
-                    'LTP': trade['ltp'],
-                    'Quantity': trade['qty'],
                     'Live Status': trade['live_stat'],
-                    'Kite Token': trade['kite_token'],
+                    'Symbol': symbol,
+                    'Type': trade['type'],
+                    'Price': trade['ltp'],
+                    'Quantity': trade['qty'],
                     'Stop Loss': trade['sl'],
                     'Target': trade['tgt'],
-                    'Type': trade['type'],
                     'Order Time': trade['order_time'],
-                    'Current LTP': trade['c_ltp']
+                    'Kite Token': trade['kite_token'],
+                    'Current LTP': trade['c_ltp'],
+                    'PnL':trade['PnL']
+
+
                 }
                 open_trades.append(trade_data)
         return pd.DataFrame(open_trades)
@@ -61,7 +64,7 @@ app.layout = html.Div([
     html.H1('Algroww Dashboard', style={'textAlign': 'center'}),
     dcc.Interval(
         id='interval-component',
-        interval=3*1000,  # in milliseconds (60 seconds)
+        interval=1*1000,  # in milliseconds (60 seconds)
         n_intervals=0
     ),
     dcc.Interval(
