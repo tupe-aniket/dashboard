@@ -6,7 +6,6 @@ import dash_table
 import dash_core_components as dcc
 import dash_html_components as html
 from dash.dependencies import Input, Output
-import json
 import pytz
 from datetime import datetime
 
@@ -25,30 +24,31 @@ def fetch_data():
         data = response.json()
         open_trades = []
         for strategy, trades in data['open_trades'].items():
-            # if trades != "Strat_PnL":
-                for symbol, trade in trades.items():
-                    if symbol != "Strat_PnL":
-                        trade_data = {
-                            'Strategy': strategy,
-                            'Live Status': trade['live_stat'],
-                            'Symbol': symbol,
-                            'Type': trade['type'],
-                            'Price': trade['ltp'],
-                            'Quantity': trade['qty'],
-                            'Stop Loss': trade['sl'],
-                            'Target': trade['tgt'],
-                            'Order Time': trade['order_time'],
-                            'Kite Token': trade['kite_token'],
-                            'Current LTP': trade['c_ltp'],
-                            'PnL':trade['PnL']
+            for symbol, trade in trades.items():
+                if symbol != "Strat_PnL":
+                    trade_data = {
+                        'Strategy': strategy,
+                        'Live Status': trade['live_stat'],
+                        'Symbol': symbol,
+                        'Type': trade['type'],
+                        'Price': trade['ltp'],
+                        'Quantity': trade['qty'],
+                        'Stop Loss': trade['sl'],
+                        'Target': trade['tgt'],
+                        'Order Time': trade['order_time'],
+                        'Kite Token': trade['kite_token'],
+                        'Current LTP': trade['c_ltp'],
+                        'PnL': trade.get('PnL', 0)  # Ensure 'PnL' key is handled safely
+                    }
+                    open_trades.append(trade_data)
 
+        strat_pnl_nifty_trend = data['open_trades']['NIFTY_Trend'].get('Strat_PnL', 0)
+        strat_pnl_nifty_scalp = data['open_trades']['NIFTY_Scalp'].get('Strat_PnL', 0)
 
-                        }
-                        open_trades.append(trade_data)
-        return pd.DataFrame(open_trades)
+        return pd.DataFrame(open_trades), strat_pnl_nifty_trend, strat_pnl_nifty_scalp
     except requests.RequestException as e:
         print(f"Error fetching data: {e}")
-        return pd.DataFrame()  # Return an empty DataFrame in case of error
+        return pd.DataFrame(), 0, 0  # Return empty DataFrame and zeroes in case of error
 
 # Function to get current IST time
 def get_current_ist_time():
@@ -59,14 +59,14 @@ def get_current_ist_time():
 app = dash.Dash(__name__, server=server, url_base_pathname='/dashboard/')
 
 # Fetch initial data
-initial_data = fetch_data()
+initial_data, initial_strat_pnl_nifty_trend, initial_strat_pnl_nifty_scalp = fetch_data()
 
 app.layout = html.Div([
     html.Div(id='live-time', style={'position': 'absolute', 'top': '10px', 'left': '10px', 'fontSize': 20}),
     html.H1('Algroww Dashboard', style={'textAlign': 'center'}),
     dcc.Interval(
         id='interval-component',
-        interval=1*1000,  # in milliseconds (60 seconds)
+        interval=1*1000,  # in milliseconds (1 second)
         n_intervals=0
     ),
     dcc.Interval(
@@ -78,16 +78,22 @@ app.layout = html.Div([
         id='table',
         columns=[{"name": i, "id": i} for i in initial_data.columns],
         data=initial_data.to_dict('records')
-    )
+    ),
+    html.Div([
+        html.H3(id='strat-pnl-nifty-trend', style={'textAlign': 'center'}),
+        html.H3(id='strat-pnl-nifty-scalp', style={'textAlign': 'center'}),
+    ], style={'marginTop': '20px', 'textAlign': 'center'})
 ])
 
 @app.callback(
-    Output('table', 'data'),
+    [Output('table', 'data'),
+     Output('strat-pnl-nifty-trend', 'children'),
+     Output('strat-pnl-nifty-scalp', 'children')],
     [Input('interval-component', 'n_intervals')]
 )
 def update_table(n):
-    df = fetch_data()
-    return df.to_dict('records')
+    df, strat_pnl_nifty_trend, strat_pnl_nifty_scalp = fetch_data()
+    return df.to_dict('records'), f'NIFTY Trend Strat PnL: {strat_pnl_nifty_trend}', f'NIFTY Scalp Strat PnL: {strat_pnl_nifty_scalp}'
 
 @app.callback(
     Output('live-time', 'children'),
