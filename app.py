@@ -66,7 +66,7 @@ app.layout = html.Div([
     html.H1('Algroww Dashboard', style={'textAlign': 'center'}),
     dcc.Interval(
         id='interval-component',
-        interval=1*1000,  # in milliseconds (1 second)
+        interval=0.5*1000,  # in milliseconds (1 second)
         n_intervals=0
     ),
     dcc.Interval(
