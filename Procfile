@@ -1,1 +1,1 @@
-web: gunicorn app:server
+web: flet_runtime app.py

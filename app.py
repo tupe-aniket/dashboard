@@ -1,115 +1,112 @@
-from flask import Flask, render_template_string
 import requests
 import pandas as pd
-import dash
-import dash_table
-import dash_core_components as dcc
-import dash_html_components as html
-from dash.dependencies import Input, Output
 import pytz
 from datetime import datetime
-
-# Create a Flask server
-server = Flask(__name__)
+import threading
+from flet import Page, Column, Row, Text, DataTable, app
 
 # Your Google Drive file ID
 FILE_ID = '1-BldP2RQxfVXDa9hje7T3civXGVNpkzx'
 FILE_URL = f'https://drive.google.com/uc?export=download&id={FILE_ID}'
 
-# Function to fetch and parse the JSON data
-def fetch_data():
-    try:
-        response = requests.get(FILE_URL)
-        response.raise_for_status()  # Raise an error for bad status codes
-        data = response.json()
-        open_trades = []
-        for strategy, trades in data['open_trades'].items():
-            for symbol, trade in trades.items():
-                if symbol != "Strat_PnL":
-                    trade_data = {
-                        'Strategy': strategy,
-                        'Live Status': trade['live_stat'],
-                        'Symbol': symbol,
-                        'Type': trade['type'],
-                        'Price': trade['ltp'],
-                        'Quantity': trade['qty'],
-                        'Stop Loss': trade['sl'],
-                        'Target': trade['tgt'],
-                        'Order Time': trade['order_time'],
-                        'Kite Token': trade['kite_token'],
-                        'Current LTP': trade['c_ltp'],
-                        'PnL': trade['PnL']  # Ensure 'PnL' key is handled safely
-                    }
-                    open_trades.append(trade_data)
+class Dashboard(Page):
+    def __init__(self):
+        super().__init__()
+        self.live_time = Text(size=20)
+        self.strat_pnl_nifty_trend = Text()
+        self.strat_pnl_nifty_scalp = Text()
+        self.table = DataTable(
+            columns=[
+                {"name": "Strategy", "id": "Strategy"},
+                {"name": "Live Status", "id": "Live Status"},
+                {"name": "Symbol", "id": "Symbol"},
+                {"name": "Type", "id": "Type"},
+                {"name": "Price", "id": "Price"},
+                {"name": "Quantity", "id": "Quantity"},
+                {"name": "Stop Loss", "id": "Stop Loss"},
+                {"name": "Target", "id": "Target"},
+                {"name": "Order Time", "id": "Order Time"},
+                {"name": "Kite Token", "id": "Kite Token"},
+                {"name": "Current LTP", "id": "Current LTP"},
+                {"name": "PnL", "id": "PnL"},
+            ],
+            data=[]
+        )
+        self.add_children(
+            Column([
+                Row([self.live_time], alignment='start'),
+                Row([Text('Algroww Dashboard', size=30)], alignment='center'),
+                self.table,
+                Row([self.strat_pnl_nifty_trend], alignment='center'),
+                Row([self.strat_pnl_nifty_scalp], alignment='center')
+            ])
+        )
 
-        strat_pnl_nifty_trend = data['open_trades']['NIFTY_Trend']['Strat_PnL']
-        strat_pnl_nifty_scalp = data['open_trades']['NIFTY_Scalp']['Strat_PnL']
+    def did_mount(self):
+        # Start updating time and data on mount
+        threading.Thread(target=self.update_loop, daemon=True).start()
 
-        return pd.DataFrame(open_trades), strat_pnl_nifty_trend, strat_pnl_nifty_scalp
-    except requests.RequestException as e:
-        print(f"Error fetching data: {e}")
-        return pd.DataFrame(), 0, 0  # Return empty DataFrame and zeroes in case of error
+    def update_loop(self):
+        while True:
+            try:
+                self.update_time()
+                self.update_data()
+            except Exception as e:
+                print(f"Error in update loop: {e}")
 
-# Function to get current IST time
-def get_current_ist_time():
-    ist = pytz.timezone('Asia/Kolkata')
-    return datetime.now(ist).strftime('%Y-%m-%d %H:%M:%S')
+            # Update every 1 second
+            threading.Event().wait(1)
 
-# Create a Dash app
-app = dash.Dash(__name__, server=server, url_base_pathname='/dashboard/')
+    def update_time(self):
+        ist = pytz.timezone('Asia/Kolkata')
+        current_time = datetime.now(ist).strftime('%Y-%m-%d %H:%M:%S')
+        self.live_time.value = f"Current IST Time: {current_time}"
 
-# Fetch initial data
-initial_data, initial_strat_pnl_nifty_trend, initial_strat_pnl_nifty_scalp = fetch_data()
+    def update_data(self):
+        try:
+            response = requests.get(FILE_URL)
+            response.raise_for_status()  # Raise an error for bad status codes
+            data = response.json()
+            open_trades = []
+            for strategy, trades in data['open_trades'].items():
+                for symbol, trade in trades.items():
+                    if symbol != "Strat_PnL":
+                        trade_data = {
+                            'Strategy': strategy,
+                            'Live Status': trade['live_stat'],
+                            'Symbol': symbol,
+                            'Type': trade['type'],
+                            'Price': trade['ltp'],
+                            'Quantity': trade['qty'],
+                            'Stop Loss': trade['sl'],
+                            'Target': trade['tgt'],
+                            'Order Time': trade['order_time'],
+                            'Kite Token': trade['kite_token'],
+                            'Current LTP': trade['c_ltp'],
+                            'PnL': trade['PnL']
+                        }
+                        open_trades.append(trade_data)
 
-app.layout = html.Div([
-    html.Div(id='live-time', style={'position': 'absolute', 'top': '10px', 'left': '10px', 'fontSize': 20}),
-    html.H1('Algroww Dashboard', style={'textAlign': 'center'}),
-    dcc.Interval(
-        id='interval-component',
-        interval=0.5*1000,  # in milliseconds (1 second)
-        n_intervals=0
-    ),
-    dcc.Interval(
-        id='time-interval-component',
-        interval=1000,  # in milliseconds (1 second)
-        n_intervals=0
-    ),
-    dash_table.DataTable(
-        id='table',
-        columns=[{"name": i, "id": i} for i in initial_data.columns],
-        data=initial_data.to_dict('records')
-    ),
-    html.Div([
-        html.H3(id='strat-pnl-nifty-trend', style={'textAlign': 'center'}),
-        html.H3(id='strat-pnl-nifty-scalp', style={'textAlign': 'center'}),
-    ], style={'marginTop': '20px', 'textAlign': 'center'})
-])
+            strat_pnl_nifty_trend = data['open_trades']['NIFTY_Trend']['Strat_PnL']
+            strat_pnl_nifty_scalp = data['open_trades']['NIFTY_Scalp']['Strat_PnL']
 
-@app.callback(
-    [Output('table', 'data'),
-     Output('strat-pnl-nifty-trend', 'children'),
-     Output('strat-pnl-nifty-scalp', 'children')],
-    [Input('interval-component', 'n_intervals')]
-)
-def update_table(n):
-    df, strat_pnl_nifty_trend, strat_pnl_nifty_scalp = fetch_data()
-    return df.to_dict('records'), f'NIFTY Trend Strat PnL: {strat_pnl_nifty_trend}', f'NIFTY Scalp Strat PnL: {strat_pnl_nifty_scalp}'
+            # Update table data
+            self.table.data = open_trades
 
-@app.callback(
-    Output('live-time', 'children'),
-    [Input('time-interval-component', 'n_intervals')]
-)
-def update_time(n):
-    return get_current_ist_time()
+            # Update PnL values
+            self.strat_pnl_nifty_trend.value = f'NIFTY Trend Strat PnL: {strat_pnl_nifty_trend}'
+            self.strat_pnl_nifty_scalp.value = f'NIFTY Scalp Strat PnL: {strat_pnl_nifty_scalp}'
 
-# Define a route for the Flask server
-@server.route('/')
-def index():
-    return render_template_string('''
-        <h1>Welcome to the Dashboard</h1>
-        <p><a href="/dashboard/">Go to Dashboard</a></p>
-    ''')
+        except requests.RequestException as e:
+            print(f"Error fetching data: {e}")
 
-# Run the Flask server
-if __name__ == '__main__':
-    server.run(debug=True)
+def main():
+    page = Dashboard()
+    page.title = "Algroww Dashboard"
+    page.horizontal_alignment = "center"
+    page.vertical_alignment = "start"
+    return page
+
+
+if __name__ == "__main__":
+    app(target=main)
